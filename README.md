@@ -11,6 +11,7 @@ This middleware enables real-time collaboration by connecting your Zustand state
 - Efficiently handles updates, only transmitting changes for modified properties.
 - Correctly handles complex data types like arrays and their methods.
 - Ignores functions in the store, only syncing data properties.
+- Supports partial state syncing with the `partialize` option.
 
 ## Installation
 
@@ -54,6 +55,67 @@ export const useStore = create<MyState>()(
   )((set) => ({
     count: 0,
     name: "Alice",
+    increment: () => set((state) => ({ count: state.count + 1 })),
+  }))
+);
+```
+
+## Partial State Syncing
+
+You can selectively sync only specific parts of your state using the `partialize` option. This is useful when you have local-only state that shouldn't be shared with other clients.
+
+```typescript
+import { create } from "zustand";
+import * as Y from "yjs";
+import { syncYjsMiddleware } from "y-zustand";
+
+const ydoc = new Y.Doc();
+
+interface MyState {
+  count: number;
+  name: string;
+  localOnly: string; // This won't be synced
+  increment: () => void;
+}
+
+export const useStore = create<MyState>()(
+  syncYjsMiddleware(
+    ydoc,
+    "shared",
+    {
+      // Only sync count and name, omit localOnly
+      partialize: (state) => {
+        const { localOnly, ...rest } = state;
+        return rest;
+      }
+    }
+  )((set) => ({
+    count: 0,
+    name: "Alice",
+    localOnly: "This won't be synced",
+    increment: () => set((state) => ({ count: state.count + 1 })),
+  }))
+);
+```
+
+You can also use a more concise approach with `Object.fromEntries`:
+
+```typescript
+export const useStore = create<MyState>()(
+  syncYjsMiddleware(
+    ydoc,
+    "shared",
+    {
+      // Omit specific keys from syncing
+      partialize: (state) =>
+        Object.fromEntries(
+          Object.entries(state).filter(([key]) => !['localOnly'].includes(key))
+        )
+    }
+  )((set) => ({
+    count: 0,
+    name: "Alice",
+    localOnly: "This won't be synced",
     increment: () => set((state) => ({ count: state.count + 1 })),
   }))
 );

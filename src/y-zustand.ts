@@ -21,12 +21,24 @@ function jsToY(value: any): any {
   return ymap;
 }
 
+export interface SyncYjsOptions<T> {
+  /**
+   * A function that takes the current state and returns a new state object
+   * with only the fields that should be synced with Yjs.
+   * By default, all fields are synced.
+   */
+  partialize?: (state: T) => Partial<T>;
+}
+
 export const syncYjsMiddleware =
-  (doc: Y.Doc, name: string) =>
   <T extends object>(
-    creator: StateCreator<T>
-  ): StateCreator<T> => {
+    doc: Y.Doc,
+    name: string,
+    options: SyncYjsOptions<T> = {}
+  ) =>
+  (creator: StateCreator<T>): StateCreator<T> => {
     const ymap = doc.getMap(name);
+    const { partialize = (state: T) => state } = options;
 
     return (set, get, api) => {
       // ---- 1. Yjs -> Zustand ----
@@ -45,14 +57,18 @@ export const syncYjsMiddleware =
           return;
         }
 
+        // Apply partialize to get only the fields that should be synced
+        const partialState = partialize(state) as Partial<T>;
+        const partialPrevState = partialize(prevState) as Partial<T>;
+
         doc.transact(() => {
-          Object.entries(state).forEach(([key, value]) => {
+          Object.entries(partialState).forEach(([key, value]) => {
             // Ignore functions
             if (typeof value === 'function') {
               return;
             }
 
-            const prevValue = prevState[key as keyof T];
+            const prevValue = partialPrevState[key as keyof T];
 
             if (JSON.stringify(value) !== JSON.stringify(prevValue)) {
               ymap.set(key, jsToY(value));
@@ -67,8 +83,11 @@ export const syncYjsMiddleware =
       const initialStateFromCreator = creator(set, get, api);
       if (ymap.size === 0) {
         doc.transact(() => {
-          for (const key in initialStateFromCreator) {
-            const value = initialStateFromCreator[key as keyof T];
+          // Apply partialize to get only the fields that should be synced
+          const partialState = partialize(initialStateFromCreator);
+          
+          for (const key in partialState) {
+            const value = partialState[key as keyof T];
             if (typeof value !== 'function') {
               ymap.set(key, jsToY(value));
             }

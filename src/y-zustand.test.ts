@@ -9,11 +9,13 @@ interface MyState {
   name: string;
   items: string[];
   details: { id: number; value: string };
+  localOnly: string; // This should not be synced
   increment: () => void;
   setName: (name: string) => void;
   addItem: (item: string) => void;
   updateDetails: (value: string) => void;
   reorderItems: (items: string[]) => void;
+  setLocalOnly: (value: string) => void;
 }
 
 describe('syncYjsMiddleware', () => {
@@ -30,16 +32,30 @@ describe('syncYjsMiddleware', () => {
       name: 'Alice',
       items: ['apple', 'banana', 'cherry'],
       details: { id: 1, value: 'initial' },
+      localOnly: 'not synced',
       increment: () => set((state: MyState) => ({ count: state.count + 1 })),
       setName: (name: string) => set({ name }),
       addItem: (item: string) => set((state: MyState) => ({ items: [...state.items, item] })),
       updateDetails: (value: string) =>
         set((state: MyState) => ({ details: { ...state.details, value } })),
       reorderItems: (items: string[]) => set({ items }),
+      setLocalOnly: (value: string) => set({ localOnly: value }),
     });
 
-    store1 = create<MyState>()(syncYjsMiddleware(ydoc, 'shared')(creator));
-    store2 = create<MyState>()(syncYjsMiddleware(ydoc, 'shared')(creator));
+    store1 = create<MyState>()(syncYjsMiddleware(ydoc, 'shared', { 
+      partialize: (state) => {
+        // Omit localOnly from syncing
+        const { localOnly, setLocalOnly, ...rest } = state;
+        return rest;
+      }
+    })(creator));
+    store2 = create<MyState>()(syncYjsMiddleware(ydoc, 'shared', { 
+      partialize: (state) => {
+        // Omit localOnly from syncing
+        const { localOnly, setLocalOnly, ...rest } = state;
+        return rest;
+      }
+    })(creator));
   });
 
   it('should initialize both stores with the same initial state', () => {
@@ -82,5 +98,35 @@ describe('syncYjsMiddleware', () => {
   it('should sync array reordering from store2 to store1', () => {
     store2.getState().reorderItems(['banana', 'cherry', 'apple']);
     expect(store1.getState().items).toEqual(['banana', 'cherry', 'apple']);
+  });
+
+  it('should not sync localOnly property', () => {
+    // Set localOnly in store1
+    store1.getState().setLocalOnly('store1 value');
+    
+    // Set localOnly in store2
+    store2.getState().setLocalOnly('store2 value');
+    
+    // They should be different (not synced)
+    expect(store1.getState().localOnly).toBe('store1 value');
+    expect(store2.getState().localOnly).toBe('store2 value');
+    
+    // But other properties should still sync
+    store1.getState().setName('Bob');
+    expect(store2.getState().name).toBe('Bob');
+  });
+
+  it('should not include localOnly in initial Yjs document', () => {
+    const ymap = ydoc.getMap('shared');
+    const json = ymap.toJSON();
+    
+    // localOnly should not be in the Yjs document
+    expect(json).not.toHaveProperty('localOnly');
+    
+    // But other properties should be there
+    expect(json).toHaveProperty('count');
+    expect(json).toHaveProperty('name');
+    expect(json).toHaveProperty('items');
+    expect(json).toHaveProperty('details');
   });
 });
