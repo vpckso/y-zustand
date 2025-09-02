@@ -49,7 +49,7 @@ interface MyState {
 
 // 3. Create your store, wrapping the creator with the middleware
 export const useStore = create<MyState>()(
-  syncYjsMiddleware(
+  syncYjsMiddleware<MyState>(
     ydoc,
     "shared"
   )((set) => ({
@@ -79,17 +79,13 @@ interface MyState {
 }
 
 export const useStore = create<MyState>()(
-  syncYjsMiddleware(
-    ydoc,
-    "shared",
-    {
-      // Only sync count and name, omit localOnly
-      partialize: (state) => {
-        const { localOnly, ...rest } = state;
-        return rest;
-      }
-    }
-  )((set) => ({
+  syncYjsMiddleware<MyState>(ydoc, "shared", {
+    // Only sync count and name, omit localOnly
+    partialize: (state) => {
+      const { localOnly, ...rest } = state;
+      return rest;
+    },
+  })((set) => ({
     count: 0,
     name: "Alice",
     localOnly: "This won't be synced",
@@ -102,17 +98,13 @@ You can also use a more concise approach with `Object.fromEntries`:
 
 ```typescript
 export const useStore = create<MyState>()(
-  syncYjsMiddleware(
-    ydoc,
-    "shared",
-    {
-      // Omit specific keys from syncing
-      partialize: (state) =>
-        Object.fromEntries(
-          Object.entries(state).filter(([key]) => !['localOnly'].includes(key))
-        )
-    }
-  )((set) => ({
+  syncYjsMiddleware<MyState>(ydoc, "shared", {
+    // Omit specific keys from syncing
+    partialize: (state) =>
+      Object.fromEntries(
+        Object.entries(state).filter(([key]) => !["localOnly"].includes(key))
+      ),
+  })((set) => ({
     count: 0,
     name: "Alice",
     localOnly: "This won't be synced",

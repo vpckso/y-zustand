@@ -1,6 +1,6 @@
 {
   "name": "y-zustand",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "A simple and efficient middleware to synchronize a [Zustand](https://github.com/pmndrs/zustand) store with a [Yjs](https://github.com/yjs/yjs) document.",
   "type": "module",
   "main": "dist/y-zustand.js",
