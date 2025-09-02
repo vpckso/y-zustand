@@ -37,7 +37,7 @@
   "homepage": "https://github.com/your-username/y-zustand#readme",
   "peerDependencies": {
     "yjs": "^13.0.0",
-    "zustand": "^4.0.0"
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "tsdown": "^0.14.2",
